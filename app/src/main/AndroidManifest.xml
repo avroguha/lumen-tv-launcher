@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.software.leanback" android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <!-- Discover (JustWatch), weather (Open-Meteo, ip-api) and posters. No server of ours. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- the voice assistant; asked for at runtime the first time it opens -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- the floating clock drawn over other apps: an overlay window from a foreground service, restored at boot -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- the TV's own screensaver timer, set from Lumen (appop granted over adb: appops set org.idktech.lumen WRITE_SETTINGS allow) -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <!-- lets Lumen switch its own Home-button service back on (pm grant ... WRITE_SECURE_SETTINGS over adb) -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" xmlns:tools="http://schemas.android.com/tools" tools:ignore="ProtectedPermissions" />
+
+    <!-- Android 11+ package visibility: without this a launcher sees only system apps. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="vnd.android.cursor.item/channel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.ASSIST" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".LumenApp"
+        android:networkSecurityConfig="@xml/network_security"
+        android:allowBackup="false"
+        android:banner="@drawable/banner"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Lumen">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:excludeFromRecents="true"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|uiMode|density|fontScale|locale|layoutDirection">
+            <!-- Answers the TV's Home button once set with `cmd package set-home-activity`. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Also listed as a normal app in the stock launcher, so both can coexist. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Home button -> Lumen while Google TV stays installed and enabled (see HomeRedirectService). -->
+        <service
+            android:name=".HomeRedirectService"
+            android:exported="true"
+            android:label="Lumen Home button"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/home_redirect" />
+        </service>
+
+        <!-- A title and its trailer, in a see-through window (see TrailerActivity). -->
+        <activity
+            android:name=".TrailerActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|uiMode|density|fontScale|locale|layoutDirection"
+            android:theme="@style/Theme.Lumen.Trailer" />
+
+        <!-- "Screen off": a black, minimum-brightness window that keeps the music playing. -->
+        <activity
+            android:name=".overlay.BlackoutActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Lumen" />
+
+        <!-- Now playing: reading other apps' media sessions needs notification-listener access. -->
+        <service
+            android:name=".media.NowPlayingListener"
+            android:exported="true"
+            android:label="Lumen now playing"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- The floating clock over other apps (Settings -> Clock). -->
+        <service
+            android:name=".overlay.ClockOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="A small clock drawn over other apps on a TV" />
+        </service>
+        <receiver android:name=".overlay.BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Screensaver: clock, weather, next renewal over the aurora. -->
+        <service
+            android:name=".dream.LumenDream"
+            android:exported="true"
+            android:label="Lumen"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="android.service.dream" android:resource="@xml/dream" />
+        </service>
+    </application>
+</manifest>
