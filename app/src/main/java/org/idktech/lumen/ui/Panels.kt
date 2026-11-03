@@ -326,17 +326,62 @@ fun GlassTextField(value: String, onValue: (String) -> Unit, placeholder: String
 
 // ---------------------------------------------------------------- status strip, youtube, app tile
 
+/**
+ * One line under the greeting: network (name, address, latency), the remote's microphone link,
+ * memory, storage and a CPU sparkline. The remote-mic item is the one that matters: when that
+ * Bluetooth link is down, voice on the whole TV silently hears nothing.
+ */
 @Composable
 fun StatusStrip(s: Status?) {
     if (s == null) return
+    val warn = Color(0xFFFF6B8A)
+    val dot = "   ·   "
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).clip(RoundedCornerShape(999.dp)).background(if (s.online) Lumen.Free else Color(0xFFFF6B8A)))
+        Box(Modifier.size(8.dp).clip(RoundedCornerShape(999.dp)).background(if (s.online) Lumen.Free else warn))
         Spacer(Modifier.width(8.dp))
-        val net = if (s.online) "${s.network} · ${s.latencyMs} ms" else "${s.network} · no internet"
+        val name = listOfNotNull(s.network, s.ssid, s.ip).joinToString(" ")
+        val net = if (s.online) "$name · ${s.latencyMs} ms" else "$name · no internet"
+        Text(net, fontSize = 12.sp, color = Lumen.TextDim, maxLines = 1)
+        Text(dot, fontSize = 12.sp, color = Lumen.TextDim)
+        val r = s.remote
+        val remoteText = when (r.state) {
+            org.idktech.lumen.data.RemoteMic.State.CONNECTED -> "Remote mic connected"
+            org.idktech.lumen.data.RemoteMic.State.DISCONNECTED -> "Remote mic not connected · pair it in Remotes & accessories"
+            org.idktech.lumen.data.RemoteMic.State.NO_PERMISSION -> "Remote mic: allow Bluetooth in Settings › System"
+            org.idktech.lumen.data.RemoteMic.State.UNAVAILABLE -> "No Bluetooth"
+        }
+        val remoteColor = when (r.state) {
+            org.idktech.lumen.data.RemoteMic.State.CONNECTED -> Lumen.TextDim
+            org.idktech.lumen.data.RemoteMic.State.DISCONNECTED -> warn
+            else -> Lumen.TextFaint
+        }
+        Text(remoteText, fontSize = 12.sp, color = remoteColor, maxLines = 1)
+        Text(dot, fontSize = 12.sp, color = Lumen.TextDim)
         val ram = "RAM ${"%.1f".format(s.ramUsedMb / 1024f)} / ${"%.1f".format(s.ramTotalMb / 1024f)} GB"
-        val disk = "${"%.0f".format(s.storageFreeGb)} GB free"
-        val cpu = s.cpuPct?.let { "CPU $it%" }
-        Text(listOfNotNull(net, ram, disk, cpu).joinToString("   ·   "), fontSize = 12.sp, color = Lumen.TextDim, maxLines = 1)
+        Text("$ram$dot${"%.0f".format(s.storageFreeGb)} GB free$dot", fontSize = 12.sp, color = Lumen.TextDim, maxLines = 1)
+        CpuSparkline()
+        s.cpuPct?.let { Spacer(Modifier.width(6.dp)); Text(if (org.idktech.lumen.data.SystemStatus.cpuSource == "clock") "CPU clock $it%" else "CPU $it%", fontSize = 12.sp, color = Lumen.TextDim, maxLines = 1) }
+    }
+}
+
+/** The last ~80 seconds of CPU, a tiny line in the accent colour. */
+@Composable
+private fun CpuSparkline() {
+    val samples = org.idktech.lumen.data.SystemStatus.cpuHistory
+    val color = Lumen.Accent
+    val faint = Lumen.TextFaint
+    Canvas(Modifier.width(72.dp).height(14.dp)) {
+        drawLine(faint.copy(alpha = 0.5f), Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1f)
+        if (samples.size < 2) return@Canvas
+        val n = 40
+        val step = size.width / (n - 1)
+        val start = n - samples.size
+        var prev: Offset? = null
+        samples.forEachIndexed { i, v ->
+            val p = Offset((start + i) * step, size.height - v / 100f * (size.height - 1f))
+            prev?.let { drawLine(color, it, p, strokeWidth = 2f) }
+            prev = p
+        }
     }
 }
 

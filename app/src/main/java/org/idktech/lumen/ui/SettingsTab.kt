@@ -169,6 +169,16 @@ fun SettingsTab(
                 }
                 "System" -> {
                     item {
+                        val statusPerms = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()) {}
+                        val granted = STATUS_PERMS.all { androidx.core.content.ContextCompat.checkSelfPermission(ctx, it) == android.content.pm.PackageManager.PERMISSION_GRANTED }
+                        Actions(
+                            "Status line details",
+                            if (granted) "Bluetooth (is the remote's microphone connected) and the Wi-Fi name are allowed."
+                            else "The status line can show whether the remote's microphone link is up and the Wi-Fi name. That needs Bluetooth and location access for Lumen; nothing leaves the TV.",
+                            listOf((if (granted) "Allowed" else "Allow") to { statusPerms.launch(STATUS_PERMS.toTypedArray()) }),
+                        )
+                    }
+                    item {
                         @Suppress("UNUSED_VARIABLE") val tick = resumed
                         val canWrite = Settings.System.canWrite(ctx)
                         val current = runCatching { Settings.System.getInt(ctx.contentResolver, Settings.System.SCREEN_OFF_TIMEOUT) / 60_000 }.getOrDefault(0)

@@ -24,9 +24,11 @@ class MainActivity : ComponentActivity() {
     }
 
     // adb shell am start -n org.idktech.lumen/.MainActivity --es lumen.open voice   (or jarvis)
+    private var inFront = false
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent); setIntent(intent)
         intent.getStringExtra("lumen.open")?.let { openRequest.value = it }
+        if (inFront && intent.hasCategory(android.content.Intent.CATEGORY_HOME)) openRequest.value = "top"
     }
 
     companion object {
@@ -35,6 +37,6 @@ class MainActivity : ComponentActivity() {
     }
 
     // The floating clock is for OTHER apps: the bar has its own clock while Lumen is in front.
-    override fun onResume() { super.onResume(); ClockOverlayService.sync(this, ClockOverlayService.ACTION_HIDE); org.idktech.lumen.data.AppCache.ensureHomeService(this); org.idktech.lumen.overlay.TrailerSession.end(bringLumen = false) }
-    override fun onPause() { super.onPause(); ClockOverlayService.sync(this, ClockOverlayService.ACTION_SHOW) }
+    override fun onResume() { super.onResume(); inFront = true; ClockOverlayService.sync(this, ClockOverlayService.ACTION_HIDE); org.idktech.lumen.data.AppCache.ensureHomeService(this); org.idktech.lumen.overlay.TrailerSession.end(bringLumen = false) }
+    override fun onPause() { super.onPause(); inFront = false; ClockOverlayService.sync(this, ClockOverlayService.ACTION_SHOW) }
 }

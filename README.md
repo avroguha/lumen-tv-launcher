@@ -25,7 +25,7 @@ server and no analytics.
 | TV | **TCL Smart TV Pro**, device G09 (G09_4K_GB) |
 | Chip | Amlogic T5M, 2 GB RAM, 4K panel rendered at 1080p |
 | OS | **Android TV 12 (API 31) with Google TV** |
-| Lumen | 0.5.3, November 2026 |
+| Lumen | 0.6.0, November 2026 |
 
 Lumen needs Android 9 (API 28) or newer and an Android TV / Google TV device. It has only been
 tested on the TV above. Other TCL, Sony, Hisense, Chromecast and Shield devices should work, but
@@ -37,7 +37,8 @@ the Home-button handling and screen-off behaviour depend on the manufacturer; re
 
 **Home**
 - Your apps in a row of glass tiles. Hold OK on a tile, then LEFT / RIGHT to move it; OK drops it.
-- A status line: connection, internet latency, RAM, storage and CPU.
+- A status line: Wi-Fi name and address, internet latency, **whether the remote's microphone
+  is connected**, RAM, storage and a CPU graph.
 - Language chips (All, Hindi, English, Tamil, Telugu, Malayalam, Kannada, Bengali, Marathi,
   Korean, Japanese) that filter every row.
 - **Continue**: titles you opened from Lumen.
@@ -100,6 +101,24 @@ Being a sideloaded launcher has limits that no code can get around:
 - **Screen off keeps the backlight at its lowest**, because apps cannot switch the panel off.
 - **YouTube's own in-video ads** are not blocked by DNS ad blocking.
 
+### If voice says "I didn't catch that"
+
+On a Google TV remote the buttons work over infrared without any pairing, but the **microphone
+is a Bluetooth link**. When that link is down, every voice feature on the TV, Google
+Assistant included, hears silence and reports that it did not catch anything, while every
+button keeps working. It looks exactly like a software fault and is not one. That cost a
+day here.
+
+Lumen's status line says **Remote mic connected** or **Remote mic not connected**. If it is
+not connected, pair the remote again in the TV's own Settings → Remotes & accessories (on
+most TCL remotes: hold Back and Home together until the light blinks, then confirm on
+screen). Lumen's voice screen also refuses to listen and tells you this when the link is
+down, instead of pretending to listen.
+
+How Lumen listens: its own screen first, through Google's recognizer. If that returns no
+words, the same attempt continues on Google's voice-input bar, and Lumen remembers which of
+the two works on your TV.
+
 ---
 
 ## Install
@@ -121,7 +140,7 @@ Download `lumen-<version>.apk` from the [Releases](../../releases) page, then:
 
 ```
 adb connect <tv-ip>:5555
-adb install -r lumen-0.5.3.apk
+adb install -r lumen-0.6.0.apk
 ```
 
 The first `adb connect` shows a prompt on the TV. Choose **Always allow from this computer**.
@@ -142,6 +161,8 @@ are all on-device switches.
 | Now playing on Home | Notification access | `adb shell cmd notification allow_listener org.idktech.lumen/org.idktech.lumen.media.NowPlayingListener` |
 | Setting the screensaver timer from Lumen | Modify system settings | `adb shell appops set org.idktech.lumen WRITE_SETTINGS allow` |
 | Lumen's own voice commands (optional) | Microphone | `adb shell pm grant org.idktech.lumen android.permission.RECORD_AUDIO` |
+| Status line: is the remote's mic connected | Bluetooth (nearby devices) | asked on the TV at first start, or Settings → System → *Status line details* |
+| Status line: the Wi-Fi network's name | Location (Android ties the Wi-Fi name to it) | asked on the TV at first start; nothing leaves the TV |
 
 **Accessibility service.** The easiest way is on the TV: Settings → Accessibility → **Lumen
 Home button** → on. Or from the computer:
@@ -203,6 +224,7 @@ To undo: `adb shell settings put global private_dns_mode opportunistic`.
 | LEFT / RIGHT, OK on the trailer card | pick an app, open the title there |
 | Back on the trailer | back to Lumen, where you were |
 | LEFT at the start of a row | opens the genre menu; OK or RIGHT jumps, Back closes |
+| Home while Lumen is in front | glides to the top of the home screen (from an app, the first press brings Lumen back where it was, the second goes to the top) |
 | Hold Home for 1 s | screen off, sound on; any key wakes |
 | Mic in the top bar | Google Assistant (or what you chose under Settings → Voice) |
 
@@ -212,7 +234,7 @@ To undo: `adb shell settings put global private_dns_mode opportunistic`.
 
 Measured on the TV above with `dumpsys meminfo`, `top` and `am start -W`.
 
-| | Lumen 0.5.3 | Google TV home |
+| | Lumen 0.6.0 | Google TV home |
 |---|---|---|
 | Memory (PSS) | ~122 MB | ~136 MB |
 | CPU, idle on the home screen | ~3% of one core | ~0% |

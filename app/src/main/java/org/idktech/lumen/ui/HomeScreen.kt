@@ -240,7 +240,11 @@ fun HomeScreen() {
         val r = openRequest ?: return@LaunchedEffect
         org.idktech.lumen.MainActivity.openRequest.value = null
         val back = FocusRequester()
-        when (r) { "voice" -> openVoice(back); "jarvis" -> openJarvis(false, back) }
+        when (r) {
+            "voice" -> openVoice(back)
+            "jarvis" -> openJarvis(false, back)
+            "top" -> { close(); tab = 0; HomeNav.toTop.intValue++ }
+        }
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (loaded) refresh++; NowPlaying.start(ctx) }
@@ -258,6 +262,15 @@ fun HomeScreen() {
     }
     LaunchedEffect(Unit) { while (true) { weather = WeatherRepo.current(ctx); delay(30L * 60 * 1000) } }
     LaunchedEffect(Unit) { while (true) { status = SystemStatus.read(ctx); delay(10_000) } }
+    LaunchedEffect(Unit) { while (true) { withContext(Dispatchers.IO) { SystemStatus.sampleCpu() }; delay(2_000) } }
+    // The status line's two extras (remote-mic link, Wi-Fi name) need runtime permissions: asked once.
+    val statusPerms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { scope.launch { status = SystemStatus.read(ctx) } }
+    LaunchedEffect(prefs.statusLine) {
+        if (!prefs.statusLine || prefs.permsAsked) return@LaunchedEffect
+        val missing = STATUS_PERMS.filter { ContextCompat.checkSelfPermission(ctx, it) != PackageManager.PERMISSION_GRANTED }
+        prefs = prefs.copy(permsAsked = true); SettingsStore.save(ctx, prefs)
+        if (missing.isNotEmpty()) statusPerms.launch(missing.toTypedArray())
+    }
     LaunchedEffect(tab) { if (tab != 0) hero = null }
 
     BackHandler {
@@ -488,6 +501,13 @@ private fun HomeTab(
     }
     LaunchedEffect(apps.isNotEmpty()) {
         if (apps.isNotEmpty()) repeat(6) { if (runCatching { firstTile.requestFocus() }.isSuccess) return@LaunchedEffect; delay(60) }
+    }
+    // Home pressed while Lumen is in front: glide to the top and land on the first app.
+    val toTop = HomeNav.toTop.intValue
+    LaunchedEffect(toTop) {
+        if (toTop == 0) return@LaunchedEffect
+        runCatching { listState.animateScrollToItem(0) }
+        repeat(8) { withFrameNanos { }; if (runCatching { firstTile.requestFocus() }.isSuccess) return@LaunchedEffect }
     }
     val rows = remember(prefs.filmRows, prefs.seriesRows) {
         DISCOVER_ROWS.filter { (it.kind != Kind.MOVIE || prefs.filmRows) && (it.kind != Kind.SHOW || prefs.seriesRows) }
@@ -756,4 +776,12 @@ fun TitleDetail(t: Title, onClose: () -> Unit, onWatched: (Title) -> Unit, onSea
 private val FluidScroll = object : BringIntoViewSpec {
     override val scrollAnimationSpec: AnimationSpec<Float> = spring(dampingRatio = 0.92f, stiffness = 170f)
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = offset - containerSize * 0.22f
+}
+
+/** What the status line asks for: the remote's Bluetooth link, and the Wi-Fi network's name. */
+val STATUS_PERMS = listOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION)
+
+/** Requests from outside the composition (the Home key): bumped counters, consumed by effects. */
+object HomeNav {
+    val toTop = androidx.compose.runtime.mutableIntStateOf(0)
 }

@@ -42,6 +42,7 @@ class HomeRedirectService : AccessibilityService() {
         // Lumen's own floating clock and trailer card are windows of this package too; only a
         // screen (an Activity, or the screensaver) counts as Lumen being in front.
         if (pkg.startsWith("org.idktech.lumen") && !cls.endsWith("Activity")) return
+        val wasLumen = TrailerSession.frontApp.startsWith("org.idktech.lumen")
         TrailerSession.onWindow(pkg)
         if (pkg != STOCK) return
         if (!cls.contains("HomeActivity")) return
@@ -50,10 +51,11 @@ class HomeRedirectService : AccessibilityService() {
         if (now - last < 800) return
         last = now
         TrailerSession.end(bringLumen = false)
-        Log.i(TAG, "stock home came forward ($cls); bringing Lumen up")
+        Log.i(TAG, "stock home came forward ($cls); bringing Lumen up" + if (wasLumen) " (Home on Lumen: to the top)" else "")
         startActivity(
             Intent(this, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .apply { if (wasLumen) putExtra("lumen.open", "top") },
         )
     }
 
