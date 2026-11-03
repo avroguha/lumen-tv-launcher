@@ -18,6 +18,7 @@ import java.util.Date
 import java.util.Locale
 
 private const val TAG = "Lumen.Assistant"
+private const val KATNISS = "com.google.android.katniss"
 
 /** What the assistant decided to do with what it heard. */
 sealed class Action {
@@ -61,7 +62,13 @@ class Assistant(private val ctx: Context) {
         heard = ""; reply = ""; level = 0f
         if (!available) { phase = Phase.ERROR; reply = "No speech recognizer on this TV."; return }
         recognizer?.destroy()
-        val r = SpeechRecognizer.createSpeechRecognizer(ctx)
+        // Google TV's own recognizer (Katniss) is the one that can open the remote's microphone.
+        // The system default on this TV is the text-to-speech app's on-device recognizer, which
+        // hears nothing from the remote and answers every attempt with "no match".
+        val katniss = android.content.ComponentName(KATNISS, "com.google.android.apps.tvsearch.voice.recognition.KatnissRecognitionService")
+        val useKatniss = runCatching { ctx.packageManager.getServiceInfo(katniss, 0) }.isSuccess
+        val r = if (useKatniss) SpeechRecognizer.createSpeechRecognizer(ctx, katniss) else SpeechRecognizer.createSpeechRecognizer(ctx)
+        Log.i(TAG, "listening with ${if (useKatniss) "katniss" else "system default"} recognizer")
         recognizer = r
         r.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) { phase = Phase.LISTENING }
@@ -70,6 +77,7 @@ class Assistant(private val ctx: Context) {
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() { phase = Phase.THINKING }
             override fun onError(error: Int) {
+                Log.w(TAG, "recognizer error $error")
                 phase = Phase.ERROR
                 reply = when (error) {
                     SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "I didn't catch that. Press OK and try again."

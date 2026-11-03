@@ -100,13 +100,22 @@ class DiscoverModel(private val ctx: Context, private val scope: CoroutineScope,
         if (loading[key] == true || key in done) return
         loading[key] = true
         scope.launch {
-            val page = gate.withPermit { JustWatch.row(ctx, spec, packages, country, after = cursors[key]) }
-            val have = rows[key].orEmpty()
-            val seen = have.mapTo(HashSet()) { it.id }
-            val merged = have + page.titles.filter { seen.add(it.id) }
-            rows[key] = merged
-            cursors[key] = page.next
-            if (page.next == null || page.titles.isEmpty() || merged.size >= MAX_PER_ROW) done += key
+            // A genre page can come back thin once off-genre titles are dropped: keep fetching
+            // (up to four pages) until at least eight new titles arrived or the row is finished.
+            var added = 0; var pages = 0; var finished = false
+            while (added < 8 && pages < 4 && !finished) {
+                val page = gate.withPermit { JustWatch.row(ctx, spec, packages, country, after = cursors[key]) }
+                pages++
+                val have = rows[key].orEmpty()
+                val seen = have.mapTo(HashSet()) { it.id }
+                val fresh = page.titles.filter { seen.add(it.id) }
+                val merged = have + fresh
+                added += fresh.size
+                rows[key] = merged
+                cursors[key] = page.next
+                finished = page.next == null || merged.size >= MAX_PER_ROW
+            }
+            if (finished) done += key
             loading[key] = false
         }
     }

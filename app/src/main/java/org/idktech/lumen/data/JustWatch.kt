@@ -135,15 +135,20 @@ object JustWatch {
         withContext(Dispatchers.IO) {
             val cache = File(ctx.filesDir, "discover/$country.${spec.key}.json")
             cache.parentFile?.mkdirs()
+            // JustWatch's genre filter is loose: a comedy row comes back with horror and romance
+            // titles mixed in (matched on tags, not the genre list). Keep only titles whose own
+            // genres name the row's genre; the model fetches further pages to fill the gaps.
+            val want = spec.genre?.let { GENRE_NAMES[it] }
+            fun parsed(j: JSONObject): Page = parsePage(j).let { p -> if (want == null) p else p.copy(titles = p.titles.filter { want in it.genres }) }
             if (!force && after == null && cache.exists() && System.currentTimeMillis() - cache.lastModified() < CACHE_TTL_MS) {
-                runCatching { parsePage(JSONObject(cache.readText())) }.getOrNull()?.let { return@withContext it }
+                runCatching { parsed(JSONObject(cache.readText())) }.getOrNull()?.let { return@withContext it }
             }
             val json = runCatching { post(query(spec, packages, country, count, after = after)) }.getOrElse {
                 Log.w(TAG, "fetch failed for ${spec.key}", it)
-                return@withContext if (after == null && cache.exists()) runCatching { parsePage(JSONObject(cache.readText())) }.getOrDefault(Page(emptyList(), null)) else Page(emptyList(), null)
+                return@withContext if (after == null && cache.exists()) runCatching { parsed(JSONObject(cache.readText())) }.getOrDefault(Page(emptyList(), null)) else Page(emptyList(), null)
             }
-            val page = parsePage(json)
-            if (after == null && page.titles.isNotEmpty()) runCatching { cache.writeText(json.toString()) }
+            val page = parsed(json)
+            if (after == null && parsePage(json).titles.isNotEmpty()) runCatching { cache.writeText(json.toString()) }
             page
         }
 
