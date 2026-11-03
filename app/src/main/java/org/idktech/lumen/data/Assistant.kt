@@ -47,6 +47,10 @@ class Assistant(private val ctx: Context) {
     var level by mutableFloatStateOf(0f)     // microphone level 0..1
 
     private var recognizer: SpeechRecognizer? = null
+    private var onFinal: ((String) -> Unit)? = null
+    /** Set by the screen: starts Google's own voice-input activity with this intent (its result comes back through `externalResult`). */
+    var captureWithActivity: ((Intent) -> Boolean)? = null
+    private var triedActivity = false
     private var tts: TextToSpeech? = null
     private var ttsReady = false
 
@@ -59,7 +63,18 @@ class Assistant(private val ctx: Context) {
     /** Must be called on the main thread. */
     fun listen(onFinal: (String) -> Unit) {
         stopSpeaking()
+        this.onFinal = onFinal; triedActivity = false
         heard = ""; reply = ""; level = 0f
+        // On Google TV the remote's microphone is wired to Google's own voice-input screen. A
+        // recognizer service used from another app only gets the TV's built-in mic, which this
+        // TV does not have, so every attempt ended in "no match". Capture through Google's screen
+        // (it hands the words back), and keep the service only as a fallback.
+        if (captureWithActivity != null && !triedActivity) {
+            triedActivity = true
+            val launched = captureWithActivity?.invoke(voiceInputIntent()) ?: false
+            Log.i(TAG, "capturing through Google's voice input: $launched")
+            if (launched) { phase = Phase.LISTENING; return }
+        }
         if (!available) { phase = Phase.ERROR; reply = "No speech recognizer on this TV."; return }
         recognizer?.destroy()
         // Google TV's own recognizer (Katniss) is the one that can open the remote's microphone.
@@ -70,14 +85,23 @@ class Assistant(private val ctx: Context) {
         val r = if (useKatniss) SpeechRecognizer.createSpeechRecognizer(ctx, katniss) else SpeechRecognizer.createSpeechRecognizer(ctx)
         Log.i(TAG, "listening with ${if (useKatniss) "katniss" else "system default"} recognizer")
         recognizer = r
+        var gotAudio = false
         r.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) { phase = Phase.LISTENING }
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) { level = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f) }
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() { phase = Phase.THINKING }
+            override fun onReadyForSpeech(params: Bundle?) { Log.i(TAG, "ready for speech"); phase = Phase.LISTENING }
+            override fun onBeginningOfSpeech() { Log.i(TAG, "speech began"); gotAudio = true }
+            override fun onRmsChanged(rmsdB: Float) { if (rmsdB > 0f) gotAudio = true; level = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f) }
+            override fun onBufferReceived(buffer: ByteArray?) { gotAudio = true }
+            override fun onEndOfSpeech() { Log.i(TAG, "speech ended"); phase = Phase.THINKING }
             override fun onError(error: Int) {
-                Log.w(TAG, "recognizer error $error")
+                Log.w(TAG, "recognizer error $error (audio heard: $gotAudio)")
+                // Nothing came from the microphone at all: this recognizer cannot reach the remote's
+                // mic. Google's own voice-input screen can; it hands the words back to us.
+                if (!gotAudio && !triedActivity) {
+                    triedActivity = true
+                    val launched = captureWithActivity?.invoke(voiceInputIntent()) ?: false
+                    Log.i(TAG, "falling back to Google's voice input: $launched")
+                    if (launched) { phase = Phase.LISTENING; return }
+                }
                 phase = Phase.ERROR
                 reply = when (error) {
                     SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "I didn't catch that. Press OK and try again."
@@ -91,6 +115,7 @@ class Assistant(private val ctx: Context) {
             }
             override fun onResults(results: Bundle?) {
                 val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                Log.i(TAG, "heard: $text")
                 heard = text
                 phase = Phase.THINKING
                 onFinal(text)
@@ -105,6 +130,23 @@ class Assistant(private val ctx: Context) {
         }
         phase = Phase.LISTENING
         runCatching { r.startListening(intent) }.onFailure { phase = Phase.ERROR; reply = "Could not start listening: ${it.message}" }
+    }
+
+    private fun voiceInputIntent() = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
+        putExtra(RecognizerIntent.EXTRA_PROMPT, "Lumen is listening")
+        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        // Two apps can answer this on Google TV; Google's is the one the remote's mic reaches.
+        if (runCatching { ctx.packageManager.getPackageInfo(KATNISS, 0) }.isSuccess) setPackage(KATNISS)
+    }
+
+    /** What Google's voice-input screen heard (empty = nothing, or it was dismissed). */
+    fun externalResult(text: String) {
+        Log.i(TAG, "google voice input returned: '$text'")
+        if (text.isBlank()) { phase = Phase.ERROR; reply = "I didn't catch that. Press OK and try again."; return }
+        heard = text; phase = Phase.THINKING
+        onFinal?.invoke(text)
     }
 
     fun speak(text: String) {

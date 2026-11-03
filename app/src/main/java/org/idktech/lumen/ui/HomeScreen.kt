@@ -29,6 +29,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.spring
+import android.speech.RecognizerIntent
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
@@ -140,6 +146,11 @@ fun HomeScreen() {
     val discover = remember { DiscoverModel.shared(ctx, prefs.country).also { it.setCountry(prefs.country) } }
     val assistant = remember { Assistant(ctx) }
     DisposableEffect(Unit) { onDispose { assistant.destroy() } }
+    // Google's own voice-input screen, used when Lumen's recognizer gets no audio from the remote.
+    val speechCapture = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        assistant.externalResult(r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty())
+    }
+    assistant.captureWithActivity = { intent -> runCatching { speechCapture.launch(intent) }.onFailure { android.util.Log.w("Lumen.Assistant", "voice input activity", it) }.isSuccess }
 
     var apps by remember { mutableStateOf<List<TvApp>>(emptyList()) }
     var games by remember { mutableStateOf<List<TvApp>>(emptyList()) }
@@ -221,6 +232,15 @@ fun HomeScreen() {
             "google" -> if (!Catalog.openAssistant(ctx)) openJarvis(false, fr)
             else -> if (!Catalog.launchPackage(ctx, v) && !Catalog.openAssistant(ctx)) openJarvis(false, fr)
         }
+    }
+
+    // Test hook: adb shell am start -n org.idktech.lumen/.MainActivity --es lumen.open voice
+    val openRequest by org.idktech.lumen.MainActivity.openRequest
+    LaunchedEffect(openRequest) {
+        val r = openRequest ?: return@LaunchedEffect
+        org.idktech.lumen.MainActivity.openRequest.value = null
+        val back = FocusRequester()
+        when (r) { "voice" -> openVoice(back); "jarvis" -> openJarvis(false, back) }
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (loaded) refresh++; NowPlaying.start(ctx) }
@@ -440,6 +460,7 @@ private fun Clock(secondZone: String?) {
 
 // ---------------------------------------------------------------- home (apps + catalog merged)
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HomeTab(
     apps: List<TvApp>, discover: DiscoverModel, subs: List<Subscription>, status: Status?, language: String?, history: List<Title>,
@@ -513,6 +534,7 @@ private fun HomeTab(
     val tileWidth = when (prefs.tileSize) { "s" -> 160.dp; "l" -> 240.dp; else -> 200.dp }
 
     Box(Modifier.fillMaxSize()) {
+      CompositionLocalProvider(LocalBringIntoViewSpec provides FluidScroll) {
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = 4.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             item(key = "head") {
                 Column(Modifier.padding(horizontal = 56.dp)) {
@@ -582,6 +604,7 @@ private fun HomeTab(
                 )
             }
         }
+      }
         GenreRail(rail, current = currentRow, onPick = ::jump, modifier = Modifier.align(Alignment.CenterStart))
     }
 }
@@ -722,4 +745,15 @@ fun TitleDetail(t: Title, onClose: () -> Unit, onWatched: (Title) -> Unit, onSea
         }
         Text("Back to close", fontSize = 11.sp, color = Lumen.TextFaint, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 44.dp, bottom = 36.dp))
     }
+}
+
+/**
+ * Focus-driven scrolling that keeps the focused row (and tile) at a fixed place, 22% in from the
+ * leading edge, on a soft spring. Compose's default only scrolls once the focused thing touches
+ * an edge, so moving down the home screen was nothing, nothing, then a whole-row jump.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+private val FluidScroll = object : BringIntoViewSpec {
+    override val scrollAnimationSpec: AnimationSpec<Float> = spring(dampingRatio = 0.92f, stiffness = 170f)
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = offset - containerSize * 0.22f
 }

@@ -204,7 +204,7 @@ fun Modifier.glassBackdrop(focused: Boolean = false, active: Boolean = false): M
             // Apple-style glass: clear rather than milky. The aurora shows through, lifted; a thin
             // frost; light gathered at the top edge; a little shade at the bottom for thickness.
             translate(-pos.x, -pos.y) { drawAurora(aurora.t, aurora.w, aurora.h, intensity = 1.35f) }
-            drawRect(Color.White.copy(alpha = if (focused) 0.20f else if (active) 0.13f else 0.075f))
+            drawRect(Color.White.copy(alpha = if (focused) 0.26f else if (active) 0.13f else 0.075f))
             drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.16f), 0.28f to Color.White.copy(alpha = 0.03f), 1f to Color.Transparent, startY = 0f, endY = size.height))
             drawRect(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.16f), startY = 0f, endY = size.height))
         }
@@ -213,11 +213,11 @@ fun Modifier.glassBackdrop(focused: Boolean = false, active: Boolean = false): M
 /** A hairline rim, brighter where the light comes from (top-left), the way Apple's glass is lit. */
 fun Modifier.specularEdge(corner: Dp, focused: Boolean = false): Modifier = drawWithContent {
     drawContent()
-    val stroke = if (focused) 1.5.dp.toPx() else 1.dp.toPx()
+    val stroke = if (focused) 2.5.dp.toPx() else 1.dp.toPx()
     val r = corner.toPx().coerceAtMost(size.minDimension / 2)
     // the rim: brightest where the light comes from (top-left), catching again at bottom-right
     val rim = if (focused) Brush.linearGradient(
-        0f to Color.White, 0.45f to Color.White.copy(alpha = 0.55f), 1f to Color.White.copy(alpha = 0.85f),
+        0f to Color.White, 0.45f to Color.White.copy(alpha = 0.92f), 1f to Color.White,
         start = Offset.Zero, end = Offset(size.width, size.height),
     ) else Brush.linearGradient(
         0f to Color.White.copy(alpha = 0.55f), 0.45f to Color.White.copy(alpha = 0.08f), 1f to Color.White.copy(alpha = 0.28f),
@@ -254,7 +254,9 @@ fun GlassTile(
     val shape = RoundedCornerShape(corner)
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) focusedScale else 1f, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.62f, stiffness = 420f), label = "tileScale")
-    val glow by animateDpAsState(if (focused) 16.dp else 0.dp, animationSpec = tween(180), label = "tileGlow")
+    val glow by animateDpAsState(if (focused) 26.dp else 0.dp, animationSpec = tween(180), label = "tileGlow")
+    // The focused tile throws a glow in the theme's accent, so the eye finds it from across the room.
+    val glowColor = if (focused) Lumen.Accent else Color.Black.copy(alpha = 0.6f)
     val sweep = remember { Animatable(2f) }
     LaunchedEffect(focused) {
         if (focused) { sweep.snapTo(-0.7f); sweep.animateTo(1.7f, tween(700, easing = FastOutSlowInEasing)) }
@@ -265,7 +267,7 @@ fun GlassTile(
         modifier = modifier
             .onFocusChanged { focused = it.isFocused }
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .shadow(elevation = glow, shape = shape, ambientColor = Color.Black.copy(alpha = 0.6f), spotColor = Color.Black.copy(alpha = 0.6f)),
+            .shadow(elevation = glow, shape = shape, ambientColor = glowColor, spotColor = glowColor),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent, focusedContainerColor = Color.Transparent, pressedContainerColor = Color.Transparent,

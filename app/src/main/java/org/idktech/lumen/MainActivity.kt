@@ -15,11 +15,23 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         // adb shell am start -n org.idktech.lumen/.MainActivity --es lumen.tmdb_key <key>
         intent?.getStringExtra("lumen.tmdb_key")?.let { Trailers.setTmdbKey(this, it) }
+        intent?.getStringExtra("lumen.open")?.let { openRequest.value = it }
         setContent {
             LumenTheme {
                 HomeScreen()
             }
         }
+    }
+
+    // adb shell am start -n org.idktech.lumen/.MainActivity --es lumen.open voice   (or jarvis)
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent); setIntent(intent)
+        intent.getStringExtra("lumen.open")?.let { openRequest.value = it }
+    }
+
+    companion object {
+        /** A screen to open, asked for from outside (a test hook); HomeScreen consumes it. */
+        val openRequest = androidx.compose.runtime.mutableStateOf<String?>(null)
     }
 
     // The floating clock is for OTHER apps: the bar has its own clock while Lumen is in front.

@@ -243,7 +243,7 @@ fun PosterTile(t: Title, onFocus: () -> Unit, onOpen: (Title, FocusRequester) ->
     val fr = remember { FocusRequester() }
     Column(Modifier.width(width), horizontalAlignment = Alignment.CenterHorizontally) {
         GlassTile(
-            onClick = { onOpen(t, fr) }, corner = 18.dp,
+            onClick = { onOpen(t, fr) }, corner = 18.dp, focusedScale = 1.12f,
             modifier = modifier.focusRequester(fr).width(width).height(width * 1.5f).onFocusChanged { if (it.isFocused) { focused = true; onFocus() } else focused = false },
         ) {
             if (t.poster != null) {
@@ -263,6 +263,6 @@ fun PosterTile(t: Title, onFocus: () -> Unit, onOpen: (Title, FocusRequester) ->
             }
         }
         Spacer(Modifier.height(8.dp))
-        Text(t.title, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (focused) Lumen.Text else Lumen.TextDim)
+        Text(t.title, fontSize = 13.sp, fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (focused) Lumen.Text else Lumen.TextDim)
     }
 }

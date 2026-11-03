@@ -196,7 +196,10 @@ object Catalog {
 
     /** Google Assistant (or whatever answers ASSIST on this TV), as the remote's own button would. */
     fun openAssistant(ctx: Context): Boolean =
-        runCatching { ctx.startActivity(Intent(Intent.ACTION_ASSIST).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+        runCatching { ctx.startActivity(Intent(Intent.ACTION_ASSIST).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            .onFailure { android.util.Log.w("Lumen.Catalog", "assistant did not open", it) }
+            .onSuccess { android.util.Log.i("Lumen.Catalog", "assistant opened (ASSIST)") }
+            .isSuccess
 
     fun hasAssistant(ctx: Context): Boolean = Intent(Intent.ACTION_ASSIST).resolveActivity(ctx.packageManager) != null
 
