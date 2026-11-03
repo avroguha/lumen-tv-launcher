@@ -37,9 +37,13 @@ class HomeRedirectService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
+        val cls = event.className?.toString() ?: ""
+        Log.i(TAG, "window $pkg $cls")
+        // Lumen's own floating clock and trailer card are windows of this package too; only a
+        // screen (an Activity, or the screensaver) counts as Lumen being in front.
+        if (pkg.startsWith("org.idktech.lumen") && !cls.endsWith("Activity")) return
         TrailerSession.onWindow(pkg)
         if (pkg != STOCK) return
-        val cls = event.className?.toString() ?: ""
         if (!cls.contains("HomeActivity")) return
         val now = SystemClock.elapsedRealtime()
         if (now < passUntil) { passUntil = 0L; Log.i(TAG, "stock home opened on purpose; not redirecting"); return }
