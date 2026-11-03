@@ -41,6 +41,8 @@ class TrailerActivity : ComponentActivity() {
     }
 
     override fun onResume() { super.onResume(); org.idktech.lumen.overlay.ClockOverlayService.sync(this, org.idktech.lumen.overlay.ClockOverlayService.ACTION_HIDE) }
+    // Leaving for a streaming app (or anywhere else): the floating clock is for other apps.
+    override fun onPause() { super.onPause(); org.idktech.lumen.overlay.ClockOverlayService.sync(this, org.idktech.lumen.overlay.ClockOverlayService.ACTION_SHOW) }
 
     companion object {
         private const val EXTRA = "lumen.title"

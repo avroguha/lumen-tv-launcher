@@ -28,7 +28,11 @@ class HomeRedirectService : AccessibilityService() {
     override fun onDestroy() { TrailerSession.detach(this); super.onDestroy() }
 
     /** Back during a trailer goes straight back to Lumen (see TrailerSession). */
-    override fun onKeyEvent(event: android.view.KeyEvent): Boolean = TrailerSession.onKey(event)
+    override fun onKeyEvent(event: android.view.KeyEvent): Boolean {
+        val taken = TrailerSession.onKey(event)
+        if (event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount == 0) Log.i(TAG, "key ${event.keyCode} (${android.view.KeyEvent.keyCodeToString(event.keyCode)}) taken=$taken")
+        return taken
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return

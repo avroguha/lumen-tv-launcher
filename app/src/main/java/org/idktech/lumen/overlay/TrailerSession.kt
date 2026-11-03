@@ -198,8 +198,19 @@ object TrailerSession {
     }
 
     /** Window changes: a different app in front (not YouTube, not Lumen) ends the session. */
+    private var clockShown: Boolean? = null
+
     fun onWindow(pkg: String) {
         if (!pkg.startsWith("com.android.systemui")) frontApp = pkg
+        // The floating clock shows over other apps and hides over Lumen's own screens (home,
+        // trailer, screensaver). System UI and Google's voice screen are passing overlays, not apps.
+        if (!pkg.startsWith("com.android.systemui") && pkg != "com.google.android.katniss") {
+            val show = !pkg.startsWith("org.idktech.lumen")
+            if (show != clockShown) {
+                clockShown = show
+                service?.let { ClockOverlayService.sync(it, if (show) ClockOverlayService.ACTION_SHOW else ClockOverlayService.ACTION_HIDE) }
+            }
+        }
         if (black != null && pkg !in MEDIA_APPS && !pkg.startsWith("org.idktech.lumen")) main.post { wake() }
         if (active) log("window $pkg")
         if (!active || pkg == YOUTUBE || pkg.startsWith("org.idktech.lumen")) return
