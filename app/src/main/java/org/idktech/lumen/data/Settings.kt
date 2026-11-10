@@ -25,6 +25,7 @@ data class Prefs(
     val voice: String = "google",        // google | lumen | <package name of an assistant app>
     val country: String = "IN",          // JustWatch country: which catalogs and offers
     val dreamAfter: Int = 10,            // minutes idle on Lumen before the screensaver starts; 0 = leave it to the TV
+    val autoInput: Boolean = true,       // switch to an HDMI port when the device on it turns on
     val permsAsked: Boolean = false,     // the status line's Bluetooth / Wi-Fi-name permissions were asked for once
 ) {
     fun is24h(ctx: Context): Boolean = when (clock) { "12" -> false; "24" -> true; else -> DateFormat.is24HourFormat(ctx) }
@@ -60,6 +61,7 @@ object SettingsStore {
             voice = s.getString("voice", d.voice) ?: d.voice,
             country = s.getString("country", d.country) ?: d.country,
             dreamAfter = s.getInt("dreamAfter", d.dreamAfter),
+            autoInput = s.getBoolean("autoInput", d.autoInput),
             permsAsked = s.getBoolean("permsAsked", d.permsAsked),
         )
     }
@@ -72,7 +74,7 @@ object SettingsStore {
             .putString("clock", x.clock).putString("tempUnit", x.tempUnit)
             .putString("floatingClock", x.floatingClock).putString("floatingSize", x.floatingSize)
             .putString("voice", x.voice).putString("country", x.country).putInt("dreamAfter", x.dreamAfter)
-            .putBoolean("permsAsked", x.permsAsked)
+            .putBoolean("permsAsked", x.permsAsked).putBoolean("autoInput", x.autoInput)
             .apply()
     }
 }

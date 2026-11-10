@@ -241,10 +241,10 @@ class Assistant(private val ctx: Context) {
 
     private fun findInput(inputs: List<TvInput>, name: String): TvInput? {
         val n = name.lowercase()
-        if (n.contains("xbox") || n.contains("console")) return inputs.firstOrNull { it.connected } ?: inputs.firstOrNull { it.label.contains("HDMI 1") }
+        if (n.contains("xbox") || n.contains("console")) return inputs.firstOrNull { it.label.contains("xbox", ignoreCase = true) } ?: inputs.firstOrNull { it.connected } ?: inputs.firstOrNull { it.port.contains("HDMI 1") }
         val num = Regex("hdmi\\s*(\\d)").find(n)?.groupValues?.get(1)
-        if (num != null) return inputs.firstOrNull { it.label.replace(" ", "").equals("HDMI$num", ignoreCase = true) }
-        if (n.contains("av")) return inputs.firstOrNull { it.label.equals("AV", ignoreCase = true) }
+        if (num != null) return inputs.firstOrNull { it.port.replace(" ", "").equals("HDMI$num", ignoreCase = true) }
+        if (n.contains("av")) return inputs.firstOrNull { it.port.equals("AV", ignoreCase = true) }
         return null
     }
 }

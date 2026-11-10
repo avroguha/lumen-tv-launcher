@@ -262,6 +262,9 @@ fun HomeScreen() {
     }
     LaunchedEffect(Unit) { while (true) { weather = WeatherRepo.current(ctx); delay(30L * 60 * 1000) } }
     LaunchedEffect(Unit) { while (true) { status = SystemStatus.read(ctx); delay(10_000) } }
+    // The Input menu follows the ports live: a console turning on adds its name at once.
+    val inputsVersion = org.idktech.lumen.data.InputWatcher.version.intValue
+    LaunchedEffect(inputsVersion) { if (inputsVersion > 0) inputs = withContext(Dispatchers.IO) { Catalog.loadInputs(ctx) } }
     LaunchedEffect(Unit) { while (true) { withContext(Dispatchers.IO) { SystemStatus.sampleCpu() }; delay(2_000) } }
     // The status line's two extras (remote-mic link, Wi-Fi name) need runtime permissions: asked once.
     val statusPerms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { scope.launch { status = SystemStatus.read(ctx) } }

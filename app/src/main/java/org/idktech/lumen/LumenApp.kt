@@ -11,6 +11,7 @@ class LumenApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         org.idktech.lumen.data.AppCache.ensureHomeService(this)
+        org.idktech.lumen.data.InputWatcher.start(this)
     }
 
     /** Bounded caches: 2 GB of RAM on this TV, so posters never get to pile up in memory. */

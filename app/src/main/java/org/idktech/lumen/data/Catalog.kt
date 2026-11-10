@@ -33,9 +33,13 @@ data class TvInput(
     val inputId: String,
     val label: String,
     val state: Int,            // TvInputManager.INPUT_STATE_CONNECTED / _CONNECTED_STANDBY / _DISCONNECTED
+    val port: String = label,  // the port's own name ("HDMI 3"), when `label` also names the device on it
 ) {
     val connected: Boolean get() = state == TvInputManager.INPUT_STATE_CONNECTED
 }
+
+/** The name a CEC device has for its first second or two, before it reports its real one. */
+private val CEC_PLACEHOLDER = Regex("(playback|recorder|tuner|audio[ _]?system)[ _]?\\d*", RegexOption.IGNORE_CASE)
 
 object Catalog {
 
@@ -82,10 +86,23 @@ object Catalog {
     fun loadInputs(ctx: Context): List<TvInput> {
         val tim = ctx.getSystemService(TvInputManager::class.java) ?: return emptyList()
         return runCatching {
-            tim.tvInputList
-                .filter { it.isPassthroughInput }
-                .map { TvInput(it.id, it.loadLabel(ctx)?.toString() ?: it.id, runCatching { tim.getInputState(it.id) }.getOrDefault(TvInputManager.INPUT_STATE_DISCONNECTED)) }
-                .sortedBy { it.label }
+            // A device that speaks HDMI-CEC appears as its own input, a child of the port it is on.
+            // One row per port: named after the device (remembered while the device is off), and
+            // switching always goes to the port, which is the input this TV is known to honour.
+            val all = tim.tvInputList.filter { it.isPassthroughInput }
+            val children = all.filter { it.parentId != null }
+            val names = ctx.getSharedPreferences("inputs", Context.MODE_PRIVATE)
+            all.filter { it.parentId == null }
+                .map { p ->
+                    val port = (p.loadCustomLabel(ctx) ?: p.loadLabel(ctx))?.toString() ?: p.id
+                    val live = children.firstOrNull { it.parentId == p.id }?.let { c -> (c.loadCustomLabel(ctx) ?: c.loadLabel(ctx))?.toString() }
+                        ?.takeUnless { CEC_PLACEHOLDER.matches(it) }
+                    if (!live.isNullOrBlank()) names.edit().putString(p.id, live).apply()
+                    val device = (live ?: names.getString(p.id, null))?.takeIf { it.isNotBlank() && !it.equals(port, ignoreCase = true) }
+                    val state = runCatching { tim.getInputState(p.id) }.getOrDefault(TvInputManager.INPUT_STATE_DISCONNECTED)
+                    TvInput(p.id, if (device != null) "$device · $port" else port, state, port)
+                }
+                .sortedBy { it.port }
         }.getOrElse {
             Log.w(TAG, "tv inputs unavailable", it); emptyList()
         }

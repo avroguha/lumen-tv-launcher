@@ -28,6 +28,9 @@ object AppCache {
     @Volatile private var dirty = true
     private var watching = false
 
+    /** An HDMI device came or went: the next read must not serve the cached list. */
+    fun invalidateInputs() { dirty = true }
+
     suspend fun appsAndInputs(ctx: Context): Pair<List<TvApp>, List<TvInput>> {
         watch(ctx)
         val a = apps; val i = inputs

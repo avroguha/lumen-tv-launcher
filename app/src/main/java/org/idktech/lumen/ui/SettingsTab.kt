@@ -168,6 +168,7 @@ fun SettingsTab(
                     item { Actions("Cache", "Rows are kept on the TV and refresh themselves every 6 hours in the background. Clear to refetch now.", listOf("Clear catalog cache" to onClearCache)) }
                 }
                 "System" -> {
+                    item { Toggle("Switch to a device when it turns on", "When a console or player on an HDMI port powers on, the TV goes to it.", prefs.autoInput) { onPrefs(prefs.copy(autoInput = it)) } }
                     item {
                         val statusPerms = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()) {}
                         val granted = STATUS_PERMS.all { androidx.core.content.ContextCompat.checkSelfPermission(ctx, it) == android.content.pm.PackageManager.PERMISSION_GRANTED }

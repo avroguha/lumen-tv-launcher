@@ -25,7 +25,7 @@ server and no analytics.
 | TV | **TCL Smart TV Pro**, device G09 (G09_4K_GB) |
 | Chip | Amlogic T5M, 2 GB RAM, 4K panel rendered at 1080p |
 | OS | **Android TV 12 (API 31) with Google TV** |
-| Lumen | 0.6.0, November 2026 |
+| Lumen | 0.6.1, November 2026 |
 
 Lumen needs Android 9 (API 28) or newer and an Android TV / Google TV device. It has only been
 tested on the TV above. Other TCL, Sony, Hisense, Chromecast and Shield devices should work, but
@@ -66,6 +66,8 @@ the Home-button handling and screen-off behaviour depend on the manufacturer; re
 - **Screensaver**: the aurora, a large clock, a month calendar, the weather and your next
   subscription renewal.
 - **Floating clock** over other apps and video, in any corner.
+- **Consoles and players**: the Input menu names what is on each HDMI port (for example
+  "XBOX · HDMI 3"), and the TV switches to a device when it turns on (Settings → System).
 - **Now playing**: whatever app is playing media shows on Home with play / pause, next, open
   and stop.
 - **Screen off with sound on**: hold Home for one second, anywhere, including inside YouTube.
@@ -140,7 +142,7 @@ Download `lumen-<version>.apk` from the [Releases](../../releases) page, then:
 
 ```
 adb connect <tv-ip>:5555
-adb install -r lumen-0.6.0.apk
+adb install -r lumen-0.6.1.apk
 ```
 
 The first `adb connect` shows a prompt on the TV. Choose **Always allow from this computer**.
@@ -234,7 +236,7 @@ To undo: `adb shell settings put global private_dns_mode opportunistic`.
 
 Measured on the TV above with `dumpsys meminfo`, `top` and `am start -W`.
 
-| | Lumen 0.6.0 | Google TV home |
+| | Lumen 0.6.1 | Google TV home |
 |---|---|---|
 | Memory (PSS) | ~122 MB | ~136 MB |
 | CPU, idle on the home screen | ~3% of one core | ~0% |
