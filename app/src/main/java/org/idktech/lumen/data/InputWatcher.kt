@@ -29,6 +29,10 @@ object InputWatcher {
     /** A console re-links HDMI when it changes mode: one switch per power-on. */
     private const val COOLDOWN_MS = 60_000L
     private const val SWITCH_DELAY_MS = 1_200L
+    /** Long enough after waking for a CEC device that is on to have announced itself. */
+    private const val WAKE_CHECK_MS = 8_000L
+    /** The TV's own app that shows an HDMI input. */
+    private const val HDMI_PLAYER = "com.tcl.tv"
 
     /** Bumped on every change, so the Input menu reloads. */
     val version = mutableIntStateOf(0)
@@ -38,6 +42,7 @@ object InputWatcher {
     private val lastSwitch = HashMap<String, Long>()
     private var started = false
     private var awakeSince = 0L
+    private var checkAfterWake = Runnable { }
 
     fun start(context: Context) {
         if (started) return
@@ -48,7 +53,12 @@ object InputWatcher {
         runCatching { ports(tim).forEach { states[it.id] = tim.getInputState(it.id) } }
             .onFailure { Log.w(TAG, "tv inputs unavailable", it) }
         ctx.registerReceiver(object : BroadcastReceiver() {
-            override fun onReceive(c: Context?, i: Intent?) { awakeSince = SystemClock.elapsedRealtime() }
+            override fun onReceive(c: Context?, i: Intent?) {
+                awakeSince = SystemClock.elapsedRealtime()
+                main.removeCallbacks(checkAfterWake)
+                checkAfterWake = Runnable { leaveDeadPort(ctx, tim) }
+                main.postDelayed(checkAfterWake, WAKE_CHECK_MS)
+            }
         }, IntentFilter(Intent.ACTION_SCREEN_ON))
         tim.registerCallback(object : TvInputManager.TvInputCallback() {
             override fun onInputStateChanged(inputId: String, state: Int) { changed(ctx, tim, inputId, state) }
@@ -57,6 +67,31 @@ object InputWatcher {
             override fun onInputUpdated(inputId: String) { refresh("updated $inputId") }
         }, main)
         Log.i(TAG, "watching: $states")
+    }
+
+    /**
+     * The TV wakes on whatever input it slept on. If that is an HDMI port whose device has since
+     * been switched off, there is nothing to look at: come back to Lumen. A CEC device is on only
+     * while its own input exists, because the port itself can read "connected" for minutes after
+     * the device has gone; a device that never spoke CEC has only the port's state to go by.
+     */
+    private fun leaveDeadPort(ctx: Context, tim: TvInputManager) {
+        val front = org.idktech.lumen.overlay.TrailerSession.frontApp
+        if (front != HDMI_PLAYER) return
+        val all = runCatching { tim.tvInputList }.getOrNull() ?: return
+        val names = ctx.getSharedPreferences("inputs", Context.MODE_PRIVATE)
+        val on = ports(tim).filter { p ->
+            tim.getInputState(p.id) == TvInputManager.INPUT_STATE_CONNECTED &&
+                (!names.contains(p.id) || all.any { it.parentId == p.id })
+        }
+        if (on.isNotEmpty()) { Log.i(TAG, "woke on HDMI, device is on: ${on.map { it.id }}"); return }
+        Log.i(TAG, "woke on HDMI with no device on: back to Lumen")
+        runCatching {
+            ctx.startActivity(
+                Intent(ctx, org.idktech.lumen.MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            )
+        }.onFailure { Log.w(TAG, "could not bring Lumen forward", it) }
     }
 
     private fun ports(tim: TvInputManager): List<TvInputInfo> =

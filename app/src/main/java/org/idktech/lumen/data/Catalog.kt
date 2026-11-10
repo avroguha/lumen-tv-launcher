@@ -98,7 +98,7 @@ object Catalog {
                     val live = children.firstOrNull { it.parentId == p.id }?.let { c -> (c.loadCustomLabel(ctx) ?: c.loadLabel(ctx))?.toString() }
                         ?.takeUnless { CEC_PLACEHOLDER.matches(it) }
                     if (!live.isNullOrBlank()) names.edit().putString(p.id, live).apply()
-                    val device = (live ?: names.getString(p.id, null))?.takeIf { it.isNotBlank() && !it.equals(port, ignoreCase = true) }
+                    val device = (live ?: names.getString(p.id, null))?.takeIf { it.isNotBlank() && !it.equals(port, ignoreCase = true) && !CEC_PLACEHOLDER.matches(it) }
                     val state = runCatching { tim.getInputState(p.id) }.getOrDefault(TvInputManager.INPUT_STATE_DISCONNECTED)
                     TvInput(p.id, if (device != null) "$device · $port" else port, state, port)
                 }
