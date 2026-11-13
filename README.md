@@ -25,7 +25,7 @@ server and no analytics.
 | TV | **TCL Smart TV Pro**, device G09 (G09_4K_GB) |
 | Chip | Amlogic T5M, 2 GB RAM, 4K panel rendered at 1080p |
 | OS | **Android TV 12 (API 31) with Google TV** |
-| Lumen | 0.6.2, November 2026 |
+| Lumen | 0.6.3, November 2026 |
 
 Lumen needs Android 9 (API 28) or newer and an Android TV / Google TV device. It has only been
 tested on the TV above. Other TCL, Sony, Hisense, Chromecast and Shield devices should work, but
@@ -143,7 +143,7 @@ Download `lumen-<version>.apk` from the [Releases](../../releases) page, then:
 
 ```
 adb connect <tv-ip>:5555
-adb install -r lumen-0.6.2.apk
+adb install -r lumen-0.6.3.apk
 ```
 
 The first `adb connect` shows a prompt on the TV. Choose **Always allow from this computer**.
@@ -237,7 +237,7 @@ To undo: `adb shell settings put global private_dns_mode opportunistic`.
 
 Measured on the TV above with `dumpsys meminfo`, `top` and `am start -W`.
 
-| | Lumen 0.6.2 | Google TV home |
+| | Lumen 0.6.3 | Google TV home |
 |---|---|---|
 | Memory (PSS) | ~122 MB | ~136 MB |
 | CPU, idle on the home screen | ~3% of one core | ~0% |

@@ -72,8 +72,9 @@ object InputWatcher {
     /**
      * The TV wakes on whatever input it slept on. If that is an HDMI port whose device has since
      * been switched off, there is nothing to look at: come back to Lumen. A CEC device is on only
-     * while its own input exists, because the port itself can read "connected" for minutes after
-     * the device has gone; a device that never spoke CEC has only the port's state to go by.
+     * while its own input reads connected: the port can read "connected" for minutes after the
+     * device has gone, and an Xbox in standby keeps its CEC input alive, reading standby. A device
+     * that never spoke CEC has only the port's state to go by.
      */
     private fun leaveDeadPort(ctx: Context, tim: TvInputManager) {
         val front = org.idktech.lumen.overlay.TrailerSession.frontApp
@@ -82,7 +83,7 @@ object InputWatcher {
         val names = ctx.getSharedPreferences("inputs", Context.MODE_PRIVATE)
         val on = ports(tim).filter { p ->
             tim.getInputState(p.id) == TvInputManager.INPUT_STATE_CONNECTED &&
-                (!names.contains(p.id) || all.any { it.parentId == p.id })
+                (!names.contains(p.id) || all.any { it.parentId == p.id && tim.getInputState(it.id) == TvInputManager.INPUT_STATE_CONNECTED })
         }
         if (on.isNotEmpty()) { Log.i(TAG, "woke on HDMI, device is on: ${on.map { it.id }}"); return }
         Log.i(TAG, "woke on HDMI with no device on: back to Lumen")
