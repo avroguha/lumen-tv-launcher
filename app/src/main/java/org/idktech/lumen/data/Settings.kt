@@ -15,6 +15,8 @@ data class Prefs(
     val statusLine: Boolean = true,      // connection / RAM / storage / CPU under the greeting
     val tileSize: String = "m",          // s | m | l  — the Apps row
     val youtubeRow: Boolean = true,
+    val freeTvRow: Boolean = true,       // free streaming websites, opened in Lumen's web player
+    val adBlock: Boolean = true,         // the web player refuses ad and tracker hosts
     val backdrop: Boolean = false,       // the focused title's backdrop behind the page (off: the theme's aurora only)
     val filmRows: Boolean = true,
     val seriesRows: Boolean = true,
@@ -51,6 +53,8 @@ object SettingsStore {
             statusLine = s.getBoolean("statusLine", d.statusLine),
             tileSize = s.getString("tileSize", d.tileSize) ?: d.tileSize,
             youtubeRow = s.getBoolean("youtubeRow", d.youtubeRow),
+            freeTvRow = s.getBoolean("freeTvRow", d.freeTvRow),
+            adBlock = s.getBoolean("adBlock", d.adBlock),
             backdrop = s.getBoolean("backdrop2", d.backdrop),
             filmRows = s.getBoolean("filmRows", d.filmRows),
             seriesRows = s.getBoolean("seriesRows", d.seriesRows),
@@ -70,6 +74,7 @@ object SettingsStore {
         p(ctx).edit()
             .putString("theme", x.theme).putBoolean("motion", x.motion).putBoolean("blur", x.blur)
             .putBoolean("statusLine", x.statusLine).putString("tileSize", x.tileSize).putBoolean("youtubeRow", x.youtubeRow)
+            .putBoolean("freeTvRow", x.freeTvRow).putBoolean("adBlock", x.adBlock)
             .putBoolean("backdrop2", x.backdrop).putBoolean("filmRows", x.filmRows).putBoolean("seriesRows", x.seriesRows)
             .putString("clock", x.clock).putString("tempUnit", x.tempUnit)
             .putString("floatingClock", x.floatingClock).putString("floatingSize", x.floatingSize)

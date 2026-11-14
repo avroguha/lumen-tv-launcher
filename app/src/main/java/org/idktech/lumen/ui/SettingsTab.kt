@@ -96,6 +96,8 @@ fun SettingsTab(
                     item { Toggle("Status line", "Connection, latency, RAM, storage and CPU under the greeting.", prefs.statusLine) { onPrefs(prefs.copy(statusLine = it)) } }
                     item { Toggle("Title backdrop", "The focused title's picture behind the page.", prefs.backdrop) { onPrefs(prefs.copy(backdrop = it)) } }
                     item { Toggle("YouTube free films row", "YouTube's own free-with-ads store and free-film searches.", prefs.youtubeRow) { onPrefs(prefs.copy(youtubeRow = it)) } }
+                    item { Toggle("Free TV row", "Free streaming websites (Fawesome, Plex, DistroTV…) in a full-screen player you drive with the remote.", prefs.freeTvRow) { onPrefs(prefs.copy(freeTvRow = it)) } }
+                    item { Toggle("Block ads on websites", "The Free TV player refuses ad and tracker servers (StevenBlack's list, refreshed weekly) and every pop-up. A site that will not play without its ads can be tried with this off.", prefs.adBlock) { onPrefs(prefs.copy(adBlock = it)) } }
                     item { Toggle("Film rows", "Trending films and the film genres.", prefs.filmRows) { onPrefs(prefs.copy(filmRows = it)) } }
                     item { Toggle("Series rows", "Trending series and the series genres.", prefs.seriesRows) { onPrefs(prefs.copy(seriesRows = it)) } }
                 }

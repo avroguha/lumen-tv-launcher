@@ -16,6 +16,7 @@ class MainActivity : ComponentActivity() {
         // adb shell am start -n org.idktech.lumen/.MainActivity --es lumen.tmdb_key <key>
         intent?.getStringExtra("lumen.tmdb_key")?.let { Trailers.setTmdbKey(this, it) }
         intent?.getStringExtra("lumen.open")?.let { openRequest.value = it }
+        intent?.getStringExtra("lumen.site")?.let { openSiteFromIntent(it) }
         setContent {
             LumenTheme {
                 HomeScreen()
@@ -28,7 +29,15 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent); setIntent(intent)
         intent.getStringExtra("lumen.open")?.let { openRequest.value = it }
+        intent.getStringExtra("lumen.site")?.let { openSiteFromIntent(it) }
         if (inFront && intent.hasCategory(android.content.Intent.CATEGORY_HOME)) openRequest.value = "top"
+    }
+
+    // adb shell am start -n org.idktech.lumen/.MainActivity --es lumen.site fawesome   (a Free TV site's id, or an https address)
+    private fun openSiteFromIntent(v: String) {
+        val known = org.idktech.lumen.web.FreeSiteStore.all(this).firstOrNull { it.id == v }
+        val site = known ?: if (v.startsWith("https://")) org.idktech.lumen.web.FreeSite("adhoc", android.net.Uri.parse(v).host ?: v, v, "", 0) else null
+        site?.let { org.idktech.lumen.web.openSite(this, it) }
     }
 
     companion object {

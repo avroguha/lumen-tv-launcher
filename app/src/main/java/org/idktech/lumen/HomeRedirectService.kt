@@ -22,10 +22,15 @@ class HomeRedirectService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         // Key filtering must be asked for at runtime as well; the XML flag alone left onKeyEvent silent.
-        serviceInfo = serviceInfo.apply { flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS }
+        serviceInfo = serviceInfo.apply { flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS }
         TrailerSession.attach(this)
+        org.idktech.lumen.data.AppCloser.service = this
     }
-    override fun onDestroy() { TrailerSession.detach(this); super.onDestroy() }
+    override fun onDestroy() {
+        TrailerSession.detach(this)
+        if (org.idktech.lumen.data.AppCloser.service === this) org.idktech.lumen.data.AppCloser.service = null
+        super.onDestroy()
+    }
 
     /** Back during a trailer goes straight back to Lumen (see TrailerSession). */
     override fun onKeyEvent(event: android.view.KeyEvent): Boolean {
@@ -42,6 +47,8 @@ class HomeRedirectService : AccessibilityService() {
         // Lumen's own floating clock and trailer card are windows of this package too; only a
         // screen (an Activity, or the screensaver) counts as Lumen being in front.
         if (pkg.startsWith("org.idktech.lumen") && !cls.endsWith("Activity")) return
+        // Every app that reaches the front is remembered for the Running panel.
+        if (cls.endsWith("Activity") || cls.contains(".activity.") || cls.contains("Activity")) org.idktech.lumen.data.RunningApps.seen(this, pkg)
         val wasLumen = TrailerSession.frontApp.startsWith("org.idktech.lumen")
         TrailerSession.onWindow(pkg)
         if (pkg != STOCK) return

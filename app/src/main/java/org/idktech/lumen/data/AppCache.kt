@@ -61,9 +61,13 @@ object AppCache {
         val me = "${ctx.packageName}/${ctx.packageName}.HomeRedirectService"
         val cr = ctx.contentResolver
         val now = Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
-        if (now.split(':').any { it == me } && Settings.Secure.getInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1) return
+        val short = "${ctx.packageName}/.HomeRedirectService"
+        val entries = now.split(':').filter { it.isNotBlank() }
+        // Exactly one entry for Lumen: an earlier version appended a copy on every start.
+        val clean = (entries.filter { it != me && it != short } + me).joinToString(":")
+        if (clean == now && Settings.Secure.getInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1) return
         runCatching {
-            Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, if (now.isBlank()) me else "$now:$me")
+            Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, clean)
             Settings.Secure.putInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
             Log.i("Lumen.Home", "Home-button service switched back on")
         }.onFailure { Log.w("Lumen.Home", "cannot re-enable the Home-button service (WRITE_SECURE_SETTINGS not granted)", it) }

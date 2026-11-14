@@ -104,6 +104,17 @@
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|uiMode|density|fontScale|locale|layoutDirection"
             android:theme="@style/Theme.Lumen.Trailer" />
 
+        <!-- Free streaming websites, full screen and driven by the remote (see WebPlayerActivity).
+             Its own task, so Home goes back to Lumen and the site waits where it was. -->
+        <activity
+            android:name=".web.WebPlayerActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="org.idktech.lumen.web"
+            android:hardwareAccelerated="true"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode|density|fontScale|locale|layoutDirection"
+            android:theme="@style/Theme.Lumen" />
+
         <!-- "Screen off": a black, minimum-brightness window that keeps the music playing. -->
         <activity
             android:name=".overlay.BlackoutActivity"

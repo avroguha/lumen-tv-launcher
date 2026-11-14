@@ -79,6 +79,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusProperties
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
@@ -132,6 +135,7 @@ private sealed class Overlay {
     data object WeatherInfo : Overlay()
     data object ClockInfo : Overlay()
     data object Profiles : Overlay()
+    data object Running : Overlay()
     data class Detail(val title: Title) : Overlay()
     data class Jarvis(val forSearch: Boolean) : Overlay()
 }
@@ -244,6 +248,7 @@ fun HomeScreen() {
             "voice" -> openVoice(back)
             "jarvis" -> openJarvis(false, back)
             "top" -> { close(); tab = 0; HomeNav.toTop.intValue++ }
+            "running" -> { returnTo = null; overlay = Overlay.Running }
         }
     }
 
@@ -285,6 +290,9 @@ fun HomeScreen() {
     }
 
     val orderedApps = remember(apps, order) { AppOrderStore.apply(apps, order) }
+    val runningVersion = org.idktech.lumen.data.RunningApps.version.intValue
+    val running = remember(apps, games, runningVersion) { org.idktech.lumen.data.RunningApps.list(ctx, (apps + games).distinctBy { it.packageName }) }
+    val runningCount = running.size
     fun moveApp(pkg: String, dir: Int) {
         val list = orderedApps.map { it.packageName }.toMutableList()
         val i = list.indexOf(pkg); val j = i + dir
@@ -359,6 +367,7 @@ fun HomeScreen() {
                     tab = tab, onTab = { tab = it }, weather = weather, profile = profile, secondZone = secondZone, anchors = anchors,
                     onWeather = { open(Overlay.WeatherInfo, it) }, onInputs = { open(Overlay.Inputs, it) }, onClock = { open(Overlay.ClockInfo, it) },
                     onProfile = { open(Overlay.Profiles, it) }, onVoice = ::openVoice,
+                    onRunning = { org.idktech.lumen.data.AppCloser.state.value = null; open(Overlay.Running, it) }, runningCount = runningCount,
                 )
             }
             var shown by remember { mutableStateOf<Overlay?>(null) }
@@ -366,6 +375,7 @@ fun HomeScreen() {
             AnimatedVisibility(visible = overlay != null, enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.97f, animationSpec = tween(220)), exit = fadeOut(tween(140))) {
                 when (val o = shown) {
                     Overlay.Inputs -> InputMenu(inputs, anchors["input"], onPick = { close(); Catalog.switchToInput(ctx, it) }, onScreenOff = { close(); BlackoutActivity.start(ctx) })
+                    Overlay.Running -> RunningMenu(running, anchors["running"], onClose = { org.idktech.lumen.data.AppCloser.close(ctx, it) })
                     Overlay.WeatherInfo -> WeatherPanel(weather, anchors["weather"])
                     Overlay.ClockInfo -> ClockPanel(anchors["clock"], secondZone, onSecondZone = { secondZone = it; ClockStore.setSecondZone(ctx, it); ClockOverlayService.sync(ctx, ClockOverlayService.ACTION_HIDE) })
                     Overlay.Profiles -> ProfilePanel(
@@ -399,10 +409,12 @@ private fun TopBar(
     tab: Int, onTab: (Int) -> Unit, weather: Weather?, profile: Profile, secondZone: String?, anchors: MutableMap<String, Rect>,
     onWeather: (FocusRequester) -> Unit, onInputs: (FocusRequester) -> Unit, onClock: (FocusRequester) -> Unit,
     onProfile: (FocusRequester) -> Unit, onVoice: (FocusRequester) -> Unit,
+    onRunning: (FocusRequester) -> Unit, runningCount: Int,
 ) {
     val prefs = LocalPrefs.current
     val weatherFr = remember { FocusRequester() }; val inputFr = remember { FocusRequester() }
     val clockFr = remember { FocusRequester() }; val profileFr = remember { FocusRequester() }; val voiceFr = remember { FocusRequester() }
+    val runningFr = remember { FocusRequester() }
     fun Modifier.anchor(key: String) = onGloballyPositioned { anchors[key] = it.boundsInRoot() }
     Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp)) {
         GlassPanel(Modifier.fillMaxWidth().height(58.dp), corner = 29.dp) {
@@ -427,6 +439,18 @@ private fun TopBar(
                 GlassTile(onClick = { onInputs(inputFr) }, corner = 999.dp, focusedScale = 1.04f, modifier = Modifier.focusRequester(inputFr).anchor("input").height(36.dp).width(IntrinsicSize.Max)) {
                     Row(Modifier.align(Alignment.Center).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Input", fontSize = 13.sp, color = Lumen.TextDim); Spacer(Modifier.width(5.dp)); Text("⌄", fontSize = 13.sp, color = Lumen.Text)
+                    }
+                }
+                Spacer(Modifier.width(6.dp))
+                GlassTile(onClick = { onRunning(runningFr) }, corner = 999.dp, focusedScale = 1.04f, modifier = Modifier.focusRequester(runningFr).anchor("running").height(36.dp).width(IntrinsicSize.Max)) {
+                    Row(Modifier.align(Alignment.Center).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Running", fontSize = 13.sp, color = Lumen.TextDim)
+                        if (runningCount > 0) {
+                            Spacer(Modifier.width(6.dp))
+                            Box(Modifier.clip(RoundedCornerShape(999.dp)).background(Lumen.Accent.copy(alpha = 0.85f)).padding(horizontal = 6.dp, vertical = 1.dp)) {
+                                Text("$runningCount", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF101418))
+                            }
+                        }
                     }
                 }
                 Spacer(Modifier.width(12.dp)); Spacer(Modifier.weight(1f))
@@ -520,13 +544,14 @@ private fun HomeTab(
 
     // The order of the list's items, for the rail to jump by key.
     val keys = remember(history.isNotEmpty(), prefs.youtubeRow, rows) {
-        buildList { add("head"); add("apps"); add("lang"); if (history.isNotEmpty()) add("continue"); if (prefs.youtubeRow) add("yt"); rows.forEach { add(it.key) } }
+        buildList { add("head"); add("apps"); add("lang"); if (history.isNotEmpty()) add("continue"); if (prefs.youtubeRow) add("yt"); if (prefs.freeTvRow) add("web"); rows.forEach { add(it.key) } }
     }
     val rail = remember(keys) {
         buildList {
             add(RailEntry("apps", "Apps"))
             if ("continue" in keys) add(RailEntry("continue", "Continue"))
             if ("yt" in keys) add(RailEntry("yt", "YouTube"))
+            if ("web" in keys) add(RailEntry("web", "Free TV"))
             rows.firstOrNull { it.freeOnly }?.let { add(RailEntry(it.key, it.label)) }
             val films = rows.filter { it.kind == Kind.MOVIE }; val series = rows.filter { it.kind == Kind.SHOW }
             if (films.isNotEmpty()) { add(RailEntry("g_films", "Films", group = true)); films.forEach { add(RailEntry(it.key, it.label.removeSuffix(" movies").replaceFirstChar { c -> c.uppercase() })) } }
@@ -610,6 +635,7 @@ private fun HomeTab(
                 }
             }
             if (prefs.youtubeRow) item(key = "yt") { YouTubeRow(firstFocus = rowFocus.getOrPut("yt") { FocusRequester() }, modifier = Modifier.onFocusChanged { if (it.hasFocus) { onHero(null); currentRow = "yt" } }) }
+            if (prefs.freeTvRow) item(key = "web") { FreeTvRow(firstFocus = rowFocus.getOrPut("web") { FocusRequester() }, modifier = Modifier.onFocusChanged { if (it.hasFocus) { onHero(null); currentRow = "web" } }) }
             items(rows, key = { it.key }) { spec ->
                 LaunchedEffect(spec.key, discover.generation) { discover.ensure(spec) }
                 val all = discover.rows[spec.key]
@@ -663,6 +689,65 @@ private fun GamesTab(games: List<TvApp>) {
 }
 
 // ---------------------------------------------------------------- overlays
+
+/**
+ * The apps opened since the TV started, most recent first. OK on one force-stops it (through
+ * the TV's own App info page; see AppCloser), so a stuck app starts fresh next time.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun RunningMenu(running: List<Pair<TvApp, Long>>, anchor: Rect?, onClose: (List<TvApp>) -> Unit) {
+    val first = remember { FocusRequester() }
+    val busy by org.idktech.lumen.data.AppCloser.busy
+    val note by org.idktech.lumen.data.AppCloser.state
+    LaunchedEffect(Unit) { repeat(6) { if (runCatching { first.requestFocus() }.isSuccess) return@LaunchedEffect; delay(50) } }
+    Anchored(anchor, width = 380.dp) {
+        // Focus stays inside the panel: the arrows must not wander into the page behind it.
+        Column(
+            Modifier.focusProperties { exit = { FocusRequester.Cancel } }.focusGroup().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Opened since the TV started  ·  OK closes", fontSize = 13.sp, color = Lumen.TextFaint, modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 2.dp))
+            if (running.isEmpty()) {
+                Text("Nothing to close.", fontSize = 15.sp, color = Lumen.TextDim, modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 10.dp))
+            }
+            val now = System.currentTimeMillis()
+            running.take(8).forEachIndexed { i, (app, at) ->
+                GlassTile(onClick = { if (!busy) onClose(listOf(app)) }, corner = 16.dp, focusedScale = 1.02f, modifier = Modifier.fillMaxWidth().height(54.dp).then(if (i == 0) Modifier.focusRequester(first) else Modifier)) {
+                    Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (app.icon != null) Image(app.icon, contentDescription = null, modifier = Modifier.size(30.dp).clip(RoundedCornerShape(7.dp)))
+                        else Box(Modifier.size(30.dp).clip(RoundedCornerShape(7.dp)).background(Color.White.copy(alpha = 0.12f)))
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(app.label, fontSize = 16.sp, color = Lumen.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(ago(now - at) + if (i == 0) "  ·  last used" else "", fontSize = 11.sp, color = Lumen.TextFaint)
+                        }
+                        Text("✕  Close", fontSize = 13.sp, color = Lumen.TextDim)
+                    }
+                }
+            }
+            if (running.size > 1) {
+                GlassTile(onClick = { if (!busy) onClose(running.map { it.first }) }, corner = 16.dp, focusedScale = 1.02f, modifier = Modifier.fillMaxWidth().height(46.dp)) {
+                    Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                        Text("Close all ${running.size}", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Lumen.Text)
+                    }
+                }
+            }
+            if (busy || note != null) {
+                Text(note ?: "", fontSize = 12.sp, color = if (busy) Lumen.Accent else Lumen.TextDim, modifier = Modifier.padding(start = 12.dp, top = 2.dp, bottom = 4.dp))
+            }
+        }
+    }
+}
+
+private fun ago(ms: Long): String {
+    val m = ms / 60_000
+    return when {
+        m < 1 -> "just now"
+        m < 60 -> "$m min ago"
+        else -> "${m / 60} h ${m % 60} min ago"
+    }
+}
 
 @Composable
 private fun InputMenu(inputs: List<TvInput>, anchor: Rect?, onPick: (TvInput) -> Unit, onScreenOff: () -> Unit) {

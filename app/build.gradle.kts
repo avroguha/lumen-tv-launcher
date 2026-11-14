@@ -24,8 +24,8 @@ android {
         applicationId = "org.idktech.lumen"
         minSdk = 28
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.6.3"
+        versionCode = 14
+        versionName = "0.7.1"
     }
 
     signingConfigs {

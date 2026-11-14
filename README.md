@@ -25,7 +25,7 @@ server and no analytics.
 | TV | **TCL Smart TV Pro**, device G09 (G09_4K_GB) |
 | Chip | Amlogic T5M, 2 GB RAM, 4K panel rendered at 1080p |
 | OS | **Android TV 12 (API 31) with Google TV** |
-| Lumen | 0.6.3, November 2026 |
+| Lumen | 0.7.1, November 2026 |
 
 Lumen needs Android 9 (API 28) or newer and an Android TV / Google TV device. It has only been
 tested on the TV above. Other TCL, Sony, Hisense, Chromecast and Shield devices should work, but
@@ -42,7 +42,17 @@ the Home-button handling and screen-off behaviour depend on the manufacturer; re
 - Language chips (All, Hindi, English, Tamil, Telugu, Malayalam, Kannada, Bengali, Marathi,
   Korean, Japanese) that filter every row.
 - **Continue**: titles you opened from Lumen.
-- **YouTube**: opens YouTube's own History, Watch later, free-with-ads films and free-film searches.
+- **YouTube**: opens YouTube's own History, Watch later, free-with-ads films, studios' own
+  full-film channels (Goldmines, Shemaroo Movies, Rajshri, Pen Multiplex, Goldmines Telefilms)
+  and free-film searches.
+- **Free TV**: free streaming websites (Fawesome, Plex, RunnTV, Internet Archive, or any site
+  you add) in a full-screen player you drive with the remote. The arrows move a highlight
+  between the page's links and posters, OK presses, hold OK for a pointer. A film fills the
+  screen when it starts: OK pauses, LEFT / RIGHT skip 10 seconds, DOWN turns the sound on or
+  off, Back stops it, hold Back to leave the site. Ad and tracker servers and pop-ups are
+  blocked (StevenBlack's hosts list, fetched by the TV, never a version younger than 72 hours).
+- **Running**: the apps opened since the TV started, with Close and Close all. Closing presses
+  Force stop on the TV's own App info page for you, so a stuck app starts fresh next time.
 - Endless rows from the streaming apps installed on the TV: Free to watch, Trending films and
   series, and genre rows (Action, Comedy, Horror, Thrillers, Romance, Drama, Sci-Fi, Animation,
   Documentaries; Drama, Crime, Comedy, Thriller and Action series). Rows load more as you scroll.
@@ -143,7 +153,7 @@ Download `lumen-<version>.apk` from the [Releases](../../releases) page, then:
 
 ```
 adb connect <tv-ip>:5555
-adb install -r lumen-0.6.3.apk
+adb install -r lumen-0.7.1.apk
 ```
 
 The first `adb connect` shows a prompt on the TV. Choose **Always allow from this computer**.
@@ -237,7 +247,7 @@ To undo: `adb shell settings put global private_dns_mode opportunistic`.
 
 Measured on the TV above with `dumpsys meminfo`, `top` and `am start -W`.
 
-| | Lumen 0.6.3 | Google TV home |
+| | Lumen 0.7.1 | Google TV home |
 |---|---|---|
 | Memory (PSS) | ~122 MB | ~136 MB |
 | CPU, idle on the home screen | ~3% of one core | ~0% |
@@ -268,6 +278,8 @@ nothing else:
 | [ip-api.com](https://ip-api.com/) | your city, for the weather (plain HTTP on their free tier) | once, then remembered |
 | [Open-Meteo](https://open-meteo.com/) | the forecast | every 30 minutes |
 | `connectivitycheck.gstatic.com` | the online dot and latency | every 10 seconds while Home is open |
+| GitHub (`api.github.com`, `raw.githubusercontent.com`) | the ad blocker's host list (StevenBlack/hosts) | the first Free TV site, then weekly |
+| The Free TV sites you open | the sites themselves | while you use them |
 
 Your profiles, app order, subscriptions, history and keys stay in Lumen's private storage on
 the TV.
